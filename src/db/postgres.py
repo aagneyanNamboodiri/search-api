@@ -1,5 +1,5 @@
 import psycopg2
-from pypika import Query, Table, Field
+from pypika import Query, Schema, Field, Criterion
 
 from src.config.settings import settings
 
@@ -19,31 +19,101 @@ def get_pg_connection():
     return _pg_conn
 
 
-def fetch_records_by_ids(tenant: str, ids: list[str]) -> list[dict]:
+def _execute_query(sql: str) -> list[tuple]:
+    conn = get_pg_connection()
+    with conn.cursor() as cur:
+        cur.execute(sql)
+        return cur.fetchall()
+
+
+def fetch_detected_schema_ids(
+    tenant: str,
+    entity_id_map: dict[str, list[int]],
+) -> list[int]:
     """
-    Fetch full records from PostgreSQL for the given IDs using PyPika.
-    Tenant maps to the appropriate schema/table in the DB.
+    Find detected_schema rows where any of the given entity FK columns
+    match the provided IDs.
+
+    entity_id_map example: {"brand_id": [12, 45], "category_id": [5]}
     """
-    if not ids:
+    if not entity_id_map:
         return []
 
-    conn = get_pg_connection()
+    schema = Schema(tenant)
+    table = schema.analytics_detected_schema
 
-    # TODO: Replace with your actual table/column names.
-    # The tenant can be used as a schema prefix or to pick the right table.
-    table = Table("items")  # TODO: e.g. Table("items").as_(tenant) or Schema(tenant).items
+    conditions = [
+        Field(fk_col).isin(ids)
+        for fk_col, ids in entity_id_map.items()
+        if ids
+    ]
+    if not conditions:
+        return []
 
     query = (
         Query.from_(table)
-        .select("*")
-        .where(Field("id").isin(ids))
+        .select(Field("id"))
+        .where(Criterion.any(conditions))
     )
 
-    sql = query.get_sql()
+    rows = _execute_query(query.get_sql())
+    return [row[0] for row in rows]
 
-    with conn.cursor() as cur:
-        cur.execute(sql)
-        columns = [desc[0] for desc in cur.description]
-        rows = cur.fetchall()
 
-    return [dict(zip(columns, row)) for row in rows]
+def fetch_session_metric_ids(
+    tenant: str,
+    detected_schema_ids: list[int],
+) -> list[int]:
+    """
+    Get session_metric_ids from both shelf and display facings tables
+    for the given detected_schema_ids.
+    """
+    if not detected_schema_ids:
+        return []
+
+    schema = Schema(tenant)
+    shelf = schema.analytics_shelf_facings_detail
+    display = schema.analytics_display_facings_detail
+
+    shelf_query = (
+        Query.from_(shelf)
+        .select(Field("session_metric_id"))
+        .where(Field("detected_schema_id").isin(detected_schema_ids))
+    )
+
+    display_query = (
+        Query.from_(display)
+        .select(Field("session_metric_id"))
+        .where(Field("detected_schema_id").isin(detected_schema_ids))
+    )
+
+    union_sql = f"{shelf_query.get_sql()} UNION {display_query.get_sql()}"
+
+    rows = _execute_query(union_sql)
+    return [row[0] for row in rows]
+
+
+def fetch_session_uuids(
+    tenant: str,
+    session_metric_ids: list[int],
+) -> list[str]:
+    """
+    Get distinct session_uuids from session_facings_detail
+    for the given session_metric_ids, excluding soft-deleted rows.
+    """
+    if not session_metric_ids:
+        return []
+
+    schema = Schema(tenant)
+    table = schema.analytics_session_facings_detail
+
+    query = (
+        Query.from_(table)
+        .select(Field("session_uuid"))
+        .distinct()
+        .where(Field("id").isin(session_metric_ids))
+        .where(Field("is_deleted").eq(False))
+    )
+
+    rows = _execute_query(query.get_sql())
+    return [str(row[0]) for row in rows]

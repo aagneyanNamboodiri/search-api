@@ -30,3 +30,10 @@ SEARCHABLE_ENTITIES: list[SearchableEntity] = [
         search_fields=DEFAULT_SEARCH_FIELDS,
     ),
 ]
+
+# Maps ES table_name -> FK column in analytics_detected_schema.
+# Extend this when adding new searchable entities.
+ENTITY_TO_DETECTED_SCHEMA_FK: dict[str, str] = {
+    "common_brand": "brand_id",
+    "common_category": "category_id",
+}

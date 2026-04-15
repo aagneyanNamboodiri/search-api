@@ -8,3 +8,4 @@ class SearchRequest(BaseModel):
 
 class SearchResponse(BaseModel):
     es_results: dict[str, list[dict]]
+    session_uuids: list[str]

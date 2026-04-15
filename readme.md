@@ -64,25 +64,27 @@ curl http://localhost:8000/health
 ```bash
 curl -X POST http://localhost:8000/search \
   -H "Content-Type: application/json" \
-  -d '{"tenant": "your_tenant_name", "query": "search text", "size": 10}'
+  -d '{"tenant_name": "scm_constellation_brands_poc", "search_query": "sooka"}'
 ```
 
-- `tenant` — the tenant name, used as the Elasticsearch index and to resolve the correct Postgres schema/table
-- `query` — the text to search for
-- `size` — number of results to return (default `10`)
+- `tenant_name` — the tenant name, used as the Elasticsearch index (and later for Postgres)
+- `search_query` — the text to search for
+
+The API runs an `_msearch` across all configured searchable entities (defined in `src/constants.py`). To add or modify entities, edit the `SEARCHABLE_ENTITIES` list there.
 
 ## Project structure
 
 ```
 src/
-├── main.py              # FastAPI app, endpoints
+├── main.py              # FastAPI app, lean controller
+├── constants.py         # Searchable entities config (table names, fields, boosts)
 ├── config/
 │   └── settings.py      # Env-based config (ES + PG)
 ├── db/
-│   ├── elasticsearch.py # ES client and search query
-│   └── postgres.py      # PG client with PyPika queries
+│   ├── elasticsearch.py # ES client, msearch payload builder
+│   └── postgres.py      # PG client with PyPika queries (Phase 2)
 ├── models/
 │   └── search.py        # Request/Response schemas
 └── search/
-    └── service.py       # Orchestrates ES search → PG lookup
+    └── service.py       # SearchProcessor class — orchestrates the pipeline
 ```

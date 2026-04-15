@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from src.models.search import SearchRequest, SearchResponse
-from src.search.service import search
+from src.search.service import SearchProcessor
 
 app = FastAPI(title="Search API")
 
@@ -13,5 +13,8 @@ async def health():
 
 @app.post("/search", response_model=SearchResponse)
 async def search_endpoint(request: SearchRequest):
-    results = search(tenant=request.tenant, query=request.query, size=request.size)
-    return results
+    processor = SearchProcessor(
+        tenant_name=request.tenant_name,
+        search_query=request.search_query,
+    )
+    return processor.process()

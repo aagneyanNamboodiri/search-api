@@ -1,21 +1,26 @@
-from src.db.elasticsearch import search_es
-from src.db.postgres import fetch_records_by_ids
+from src.constants import SearchableEntity, SEARCHABLE_ENTITIES
+from src.db.elasticsearch import msearch_es
 
 
-def search(tenant: str, query: str, size: int = 10) -> dict:
-    """
-    1. Query Elasticsearch with the text query against the tenant's index
-    2. Extract IDs from ES results
-    3. Fetch matching records from PostgreSQL for the same tenant
-    """
-    es_results = search_es(tenant, query, size=size)
+class SearchProcessor:
+    def __init__(
+        self,
+        tenant_name: str,
+        search_query: str,
+        entities: list[SearchableEntity] | None = None,
+    ):
+        self.tenant_name = tenant_name
+        self.search_query = search_query
+        self.entities = entities or SEARCHABLE_ENTITIES
 
-    # TODO: Adjust the key used to extract IDs from ES documents
-    ids = [doc["_id"] for doc in es_results]
+    def process(self) -> dict:
+        es_results = msearch_es(
+            self.tenant_name,
+            self.search_query,
+            self.entities,
+        )
 
-    pg_results = fetch_records_by_ids(tenant, ids)
+        # TODO Phase 2: Extract `id` from each _source doc (not _id),
+        # group by entity, and query PostgreSQL via fetch_records_by_ids.
 
-    return {
-        "es_results": es_results,
-        "pg_results": pg_results,
-    }
+        return {"es_results": es_results}

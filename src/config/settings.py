@@ -2,9 +2,11 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # Elasticsearch (running in Docker)
-    es_host: str = "localhost"
-    es_port: int = 9200
+    # Elasticsearch (Docker)
+    es_url: str = "http://localhost:9200"
+    es_username: str | None = None
+    es_password: str | None = None
+    es_verify_certs: bool = True
 
     # PostgreSQL (local, tenant-based)
     pg_host: str = "localhost"

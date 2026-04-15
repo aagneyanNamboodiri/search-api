@@ -16,5 +16,9 @@ async def search_endpoint(request: SearchRequest):
     processor = SearchProcessor(
         tenant_name=request.tenant_name,
         search_query=request.search_query,
+        page=request.page,
+        page_size=request.page_size,
+        entity=request.entity,
+        debug=request.debug,
     )
     return processor.process()

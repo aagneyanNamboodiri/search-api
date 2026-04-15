@@ -11,7 +11,6 @@ class SearchField:
 class SearchableEntity:
     table_name: str
     search_fields: list[SearchField] = field(default_factory=list)
-    size: int = 5
     fuzziness: str = "AUTO"
 
 

@@ -16,10 +16,12 @@ env/
 .env.*
 !.env.example
 
-# IDE / OS
+# IDE / OS / local tooling
 .vscode/
 .idea/
 .DS_Store
+.cursor/
+.code/
 
 # Tooling caches
 .pytest_cache/

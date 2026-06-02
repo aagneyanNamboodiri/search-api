@@ -1,25 +1,81 @@
-import { SearchIcon } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { useState } from "react";
 
-import { SearchResults } from "@/components/SearchResults";
+import { BatchedResults } from "@/components/BatchedResults";
+import { SearchBar } from "@/components/SearchBar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ApiError, search } from "@/lib/api";
-import type { SearchResponse } from "@/types/search";
+import {
+  ApiError,
+  buildSearchRequest,
+  fetchMore,
+  queryForBatch,
+  runSearch,
+  type SearchRequestPayload,
+  type SortOption,
+} from "@/lib/api";
+import { parseSearchQuery } from "@/lib/search-query/parser";
+import type { BatchedSearchResponse, SearchStrategy } from "@/types/search";
+
+const INDICES = ["scm_constellation_brands_poc", "scm_demo_infilect_2025"];
+
+type Toggle<T extends string> = { value: T; label: string };
+
+const STRATEGIES: Toggle<SearchStrategy>[] = [
+  { value: "multi", label: "Multi-search" },
+  { value: "single", label: "Single-search" },
+];
+
+const SORTS: Toggle<SortOption>[] = [
+  { value: "relevance", label: "Relevance" },
+  { value: "recent", label: "Recent" },
+];
+
+const ToggleGroup = <T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: Toggle<T>[];
+  value: T;
+  onChange: (value: T) => void;
+}) => (
+  <div className="flex gap-1">
+    {options.map((option) => (
+      <Button
+        key={option.value}
+        onClick={() => onChange(option.value)}
+        size="sm"
+        type="button"
+        variant={option.value === value ? "default" : "outline"}
+      >
+        {option.label}
+      </Button>
+    ))}
+  </div>
+);
 
 const App = () => {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResponse | null>(null);
+  const [index, setIndex] = useState(INDICES[0]);
+  const [strategy, setStrategy] = useState<SearchStrategy>("multi");
+  const [sort, setSort] = useState<SortOption>("relevance");
+  const [dedup, setDedup] = useState(false);
+
+  const [response, setResponse] = useState<BatchedSearchResponse | null>(null);
+  const [activePayload, setActivePayload] = useState<SearchRequestPayload | null>(
+    null,
+  );
+  const [activeIndex, setActiveIndex] = useState(index);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState<Record<string, boolean>>({});
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const trimmed = query.trim();
+  const handleSearch = async (raw: string) => {
+    const parsed = parseSearchQuery(raw);
+    const payload = buildSearchRequest(parsed, { sort, dedup });
 
-    if (!trimmed) {
+    if (!payload.store && !payload.level && !payload.term) {
       setError("Enter a search query.");
-      setResults(null);
+      setResponse(null);
       return;
     }
 
@@ -27,52 +83,103 @@ const App = () => {
     setError(null);
 
     try {
-      const data = await search({ q: trimmed });
-      setResults(data);
+      const data = await runSearch(strategy, index, payload);
+      setResponse(data);
+      setActivePayload(payload);
+      setActiveIndex(index);
+      setLoadingMore({});
     } catch (err) {
-      setResults(null);
-      if (err instanceof ApiError) {
-        setError(err.message);
-      } else if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Something went wrong. Is the API running?");
-      }
+      setResponse(null);
+      setError(
+        err instanceof ApiError || err instanceof Error
+          ? err.message
+          : "Something went wrong. Is the API running?",
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (
-    <div className="mx-auto flex min-h-svh w-full max-w-2xl flex-col gap-8 px-4 py-12">
-      <header className="space-y-2 text-center">
-        <h1 className="font-heading text-3xl font-semibold tracking-tight">
-          Search
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Queries the Search API via the dev proxy at{" "}
-          <code className="rounded bg-muted px-1.5 py-0.5 text-xs">/api</code>
-        </p>
-      </header>
+  const handleShowMore = async (level: string) => {
+    if (!response || !activePayload) return;
+    const batch = response.batches.find((item) => item.level === level);
+    if (!batch) return;
 
-      <form className="flex gap-2" onSubmit={handleSubmit}>
-        <div className="relative flex-1">
-          <SearchIcon
-            aria-hidden
-            className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            aria-label="Search query"
-            className="pl-8"
-            placeholder="Search documents…"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </div>
-        <Button disabled={isLoading} type="submit">
-          {isLoading ? "Searching…" : "Search"}
+    setLoadingMore((prev) => ({ ...prev, [level]: true }));
+
+    try {
+      const next = await fetchMore(activeIndex, {
+        store: activePayload.store,
+        level,
+        query: queryForBatch(activePayload),
+        sort,
+        offset: batch.hits.length,
+      });
+
+      setResponse((prev) =>
+        prev
+          ? {
+              ...prev,
+              batches: prev.batches.map((item) =>
+                item.level === level
+                  ? {
+                      ...item,
+                      hits: [...item.hits, ...next.hits],
+                      has_more: next.has_more,
+                    }
+                  : item,
+              ),
+            }
+          : prev,
+      );
+    } catch (err) {
+      setError(
+        err instanceof ApiError || err instanceof Error
+          ? err.message
+          : "Failed to load more results.",
+      );
+    } finally {
+      setLoadingMore((prev) => ({ ...prev, [level]: false }));
+    }
+  };
+
+  return (
+    <div className="mx-auto flex min-h-svh w-full max-w-2xl flex-col gap-6 px-4 py-12">
+      <SearchBar
+        isLoading={isLoading}
+        onChange={setQuery}
+        onSubmit={(value) => void handleSearch(value)}
+        value={query}
+      />
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+        <label className="flex items-center gap-2">
+          <span className="text-muted-foreground">Index</span>
+          <select
+            className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+            onChange={(event) => setIndex(event.target.value)}
+            value={index}
+          >
+            {INDICES.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <ToggleGroup options={STRATEGIES} value={strategy} onChange={setStrategy} />
+        <ToggleGroup options={SORTS} value={sort} onChange={setSort} />
+
+        <Button
+          onClick={() => setDedup((prev) => !prev)}
+          size="sm"
+          type="button"
+          variant={dedup ? "default" : "outline"}
+        >
+          Dedup: {dedup ? "on" : "off"}
         </Button>
-      </form>
+      </div>
 
       {error && (
         <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -80,7 +187,13 @@ const App = () => {
         </p>
       )}
 
-      {results && <SearchResults data={results} />}
+      {response && (
+        <BatchedResults
+          data={response}
+          loadingMore={loadingMore}
+          onShowMore={(level) => void handleShowMore(level)}
+        />
+      )}
     </div>
   );
 };

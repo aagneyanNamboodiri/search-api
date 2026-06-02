@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import health, search
+from app.api.routes import health, search, search_v1
 from app.core.config import get_settings
 from app.core.elastic import create_client
 
@@ -44,6 +44,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(health.router)
     app.include_router(search.router)
+    app.include_router(search_v1.router)
     return app
 
 

@@ -26,8 +26,10 @@ export type BatchHit = {
   session_uuid: string;
   score: number | null;
   matched: string[];
+  matched_total: number;
   category_title: string | null;
   store: StoreSource | null;
+  visit_date: string | null;
 };
 
 export type Batch = {

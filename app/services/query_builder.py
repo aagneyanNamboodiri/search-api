@@ -16,17 +16,39 @@ LevelSpec = tuple[str, str | None]
 
 
 def _matcher(level_key: str, query_text: str | None) -> dict[str, Any]:
-    """Build the query clause that matches documents for a level."""
+    """Build the query clause that matches documents for a level.
+
+    Combines fuzzy (typo-tolerant) and phrase-prefix (partial-word) matching so
+    short or misspelled queries still find results. Both run over the same
+    boosted fields and either one is enough to match.
+    """
     if query_text is None or level_key not in ALL_LEVELS:
         return {"match_all": {}}
 
-    level = ALL_LEVELS[level_key]
+    fields = list(ALL_LEVELS[level_key].boosted_fields)
     return {
-        "multi_match": {
-            "query": query_text,
-            "fields": list(level.boosted_fields),
-            "type": "best_fields",
-            "lenient": True,
+        "bool": {
+            "should": [
+                {
+                    "multi_match": {
+                        "query": query_text,
+                        "fields": fields,
+                        "type": "best_fields",
+                        "fuzziness": "AUTO",
+                        "prefix_length": 1,
+                        "lenient": True,
+                    }
+                },
+                {
+                    "multi_match": {
+                        "query": query_text,
+                        "fields": fields,
+                        "type": "phrase_prefix",
+                        "lenient": True,
+                    }
+                },
+            ],
+            "minimum_should_match": 1,
         }
     }
 
@@ -52,7 +74,10 @@ def _highlight_fields(level_keys: list[str]) -> dict[str, Any]:
         if not level:
             continue
         for field in level.highlight_fields:
-            fields[field] = {}
+            fields[field] = {
+                "fragment_size": 60,
+                "number_of_fragments": 3,
+            }
     return fields
 
 

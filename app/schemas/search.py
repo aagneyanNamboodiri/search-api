@@ -75,8 +75,10 @@ class BatchHit(BaseModel):
     session_uuid: str
     score: float | None = None
     matched: list[str] = Field(default_factory=list)
+    matched_total: int = 0
     category_title: str | None = None
     store: dict[str, Any] | None = None
+    visit_date: str | None = None
 
 
 class Batch(BaseModel):

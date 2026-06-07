@@ -3,7 +3,6 @@ import type { ParsedSearchQuery } from "@/lib/search-query/types";
 import type {
   Batch,
   BatchedSearchResponse,
-  SearchStrategy,
 } from "@/types/search";
 
 export type SortOption = "relevance" | "recent";
@@ -118,16 +117,13 @@ const postJson = async <T>(path: string, body: unknown): Promise<T> => {
 };
 
 export const runSearch = (
-  strategy: SearchStrategy,
   index: string,
   payload: SearchRequestPayload,
-): Promise<BatchedSearchResponse> => {
-  const endpoint = strategy === "multi" ? "multi-search" : "single-search";
-  return postJson<BatchedSearchResponse>(
-    withIndex(`/api/v1/${endpoint}`, index),
+): Promise<BatchedSearchResponse> =>
+  postJson<BatchedSearchResponse>(
+    withIndex("/api/v1/multi-search", index),
     payload,
   );
-};
 
 export const fetchMore = (
   index: string,

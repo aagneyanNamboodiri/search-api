@@ -5,6 +5,9 @@ multi-search (`_msearch`) or single-search (`filters` agg) strategy, and
 normalizes both into the same `BatchedSearchResponse`.
 """
 
+import json
+import logging
+import time
 from typing import Any
 
 from elasticsearch import AsyncElasticsearch
@@ -30,6 +33,37 @@ from app.services.query_builder import (
 )
 
 SESSIONS_LEVEL = "sessions"
+
+logger = logging.getLogger(__name__)
+
+
+def _log_query(label: str, index: str, payload: Any, roundtrip_ms: float) -> None:
+    """Log the full ES query body and its network roundtrip time."""
+    logger.info(
+        "%s index=%s roundtrip=%.1fms query=%s",
+        label,
+        index,
+        roundtrip_ms,
+        json.dumps(payload, default=str),
+    )
+
+
+async def _timed_search(
+    es: AsyncElasticsearch, *, index: str, body: dict[str, Any], label: str
+) -> dict[str, Any]:
+    start = time.perf_counter()
+    response = await es.search(index=index, body=body)
+    _log_query(label, index, body, (time.perf_counter() - start) * 1000)
+    return response
+
+
+async def _timed_msearch(
+    es: AsyncElasticsearch, *, index: str, searches: list[dict[str, Any]], label: str
+) -> dict[str, Any]:
+    start = time.perf_counter()
+    response = await es.msearch(searches=searches, index=index)
+    _log_query(label, index, searches, (time.perf_counter() - start) * 1000)
+    return response
 
 
 class SearchRequestError(ValueError):
@@ -77,6 +111,9 @@ def plan_search(request: SearchRequest) -> tuple[list[LevelSpec], dict[str, Any]
     raise SearchRequestError("Empty query: provide a store clause, level, or term.")
 
 
+MAX_VISIBLE_MATCHES = 2
+
+
 def _normalize_hit(raw: dict[str, Any]) -> BatchHit:
     source = raw.get("_source", {}) or {}
 
@@ -92,12 +129,16 @@ def _normalize_hit(raw: dict[str, Any]) -> BatchHit:
         if isinstance(fragments, list):
             matched.extend(fragments)
 
+    matched_total = len(matched)
+
     return BatchHit(
         session_uuid=source.get("session_uuid", ""),
         score=raw.get("_score"),
-        matched=matched,
+        matched=matched[:MAX_VISIBLE_MATCHES],
+        matched_total=matched_total,
         category_title=category_title,
         store=source.get("store"),
+        visit_date=source.get("visit_date"),
     )
 
 
@@ -150,7 +191,9 @@ async def run_multi_search(
     searches = build_msearch_body(
         specs=specs, store_filter=store_filter, sort=request.sort, size=request.size
     )
-    response = await es.msearch(searches=searches, index=index)
+    response = await _timed_msearch(
+        es, index=index, searches=searches, label="multi_search"
+    )
 
     responses = response.get("responses", [])
     batches = [
@@ -175,7 +218,7 @@ async def run_single_search(
     body = build_single_search_body(
         specs=specs, store_filter=store_filter, sort=request.sort, size=request.size
     )
-    response = await es.search(index=index, body=body)
+    response = await _timed_search(es, index=index, body=body, label="single_search")
 
     buckets = response["aggregations"]["by_level"]["buckets"]
     batches = [
@@ -216,7 +259,7 @@ async def run_more(
         offset=more.offset,
         size=more.size,
     )
-    response = await es.search(index=index, body=body)
+    response = await _timed_search(es, index=index, body=body, label="search_more")
     return _assemble_batch(
         level_key,
         response.get("hits", {}).get("hits", []),

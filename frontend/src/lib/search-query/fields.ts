@@ -52,6 +52,7 @@ const entityFields = (
 ];
 
 const ENTITY_FIELDS: SearchFieldDef[] = [
+  entityField("store", "Store", "store"),
   ...entityFields("brand", "Brand", "brands"),
   ...entityFields("category", "Category", "categories"),
   ...entityFields("sub_category", "Sub-category", "sub_categories"),

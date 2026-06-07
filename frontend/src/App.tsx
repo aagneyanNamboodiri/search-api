@@ -13,16 +13,11 @@ import {
   type SortOption,
 } from "@/lib/api";
 import { parseSearchQuery } from "@/lib/search-query/parser";
-import type { BatchedSearchResponse, SearchStrategy } from "@/types/search";
+import type { BatchedSearchResponse } from "@/types/search";
 
 const INDICES = ["scm_constellation_brands_poc", "scm_demo_infilect_2025"];
 
 type Toggle<T extends string> = { value: T; label: string };
-
-const STRATEGIES: Toggle<SearchStrategy>[] = [
-  { value: "multi", label: "Multi-search" },
-  { value: "single", label: "Single-search" },
-];
 
 const SORTS: Toggle<SortOption>[] = [
   { value: "relevance", label: "Relevance" },
@@ -56,7 +51,6 @@ const ToggleGroup = <T extends string>({
 const App = () => {
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(INDICES[0]);
-  const [strategy, setStrategy] = useState<SearchStrategy>("multi");
   const [sort, setSort] = useState<SortOption>("relevance");
   const [dedup, setDedup] = useState(false);
 
@@ -83,7 +77,7 @@ const App = () => {
     setError(null);
 
     try {
-      const data = await runSearch(strategy, index, payload);
+      const data = await runSearch(index, payload);
       setResponse(data);
       setActivePayload(payload);
       setActiveIndex(index);
@@ -168,7 +162,6 @@ const App = () => {
           </select>
         </label>
 
-        <ToggleGroup options={STRATEGIES} value={strategy} onChange={setStrategy} />
         <ToggleGroup options={SORTS} value={sort} onChange={setSort} />
 
         <Button

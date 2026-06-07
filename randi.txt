@@ -1,0 +1,51 @@
+Aagneyan Namboodiri
+Software Engineer
+aagneyan.namboodiri @gmail.com 9746005523 Bangalore, India
+PROFESSIONAL EXPERIENCE
+Software Developer, Infilect Technologies Private Limited 10/2023 – Present | Bengaluru, India
+• Designed, deployed, and operated a Change Data Capture pipeline that keeps two databases in sync in near real-time,
+built on a Kafka broker with multiple consumer groups built in Golang feeding a downstream ElasticSearch index.
+• Built end-to-end observability for the pipeline using OTEL for collection, Tempo for tracing, Mimir for metrics, and
+centralized logging — giving full visibility into sync health and failures.
+• Developed a full-text search engine over ElasticSearch (async FastAPI) with hierarchical multi-entity queries, field-
+weighted relevance, and fuzzy matching, with cursor-based pagination.
+• Redesigned backend APIs across Django and FastAPI, achieving 10–15× performance gains by avoiding N+1 queries
+and caching.
+• Set up CI/ CD pipelines on Google Cloud Build and Cloud Run, managing NGINX configurations across multiple
+production apps.
+• Implemented custom lazy loading, improving image load performance by over 10×
+.
+Software Engineer, BigBinary 08/2022 – 07/2023 | Remote
+• Developed and maintained RESTful APIs in Ruby on Rails with PostgreSQL to support multiple frontend applications.
+• Collaborated with content and product teams to deliver new features, including an optimisation that reduced code
+evaluation time by 50%.
+• Integrated third-party APIs (GitHub, Judge0) to expand platform capabilities and streamline user workflows.
+• Implemented asynchronous processing for GitHub web-hook events using job queues and background workers.
+• Designed code evaluation logic using Abstract Syntax Trees (ASTs) for evaluating user's code
+Big Data Developer, Tata Consultancy Services 08/2021 – 08/2022 | Kochi, India (Remote)
+• Validated, extracted, and loaded data from parquet files into Hadoop Distributed File System (HDFS).
+• Populated Kudu and Hive tables in HDFS to support downstream analytics and reporting.
+EDUCATION
+B. Tech Computer Science,
+Adi Shankara Institute of Engineering and Technology
+07/2017 – 07/2021 | Ernakulam, India
+High School, Kendriya Vidyalaya IISc 04/2015 – 04/2017 | Bengaluru, India
+NOTABLE ACHIEVEMENTS
+Chairperson, IEEE Computer Society 01/01/2020
+Led the student branch, organizing workshops and technical events to foster peer learning and innovation.
+IEEEXtreme 13.0 01/09/2019
+Ranked 517 globally and 212 in Asia-Pacific in IEEE's 2-hour international coding competition.
+RELEVANT PROJECTS
+Go Balancer, Custom Load Balancer • Built a custom load balancer in Go to explore request distribution and load handling mechanisms.
+• Added health checks and active connection tracking to improve reliability.
+08/2025 – 09/2025
+Scribble, Blog management Platform • Developed a full-stack blogging platform with ReactJS frontend and Ruby on Rails + PostgreSQL backend.
+• Implemented password protection, custom routing, and a category management system for structured content
+handling.
+12/2022 – 12/2022
+SKILLS
+Languages: Ruby, C/ C++, JavaScript, Python, Bash, Go
+Frameworks: Ruby on Rails, ReactJS, Next.js, Django, FastAPI
+Web & Cloud: HTML/ CSS, TailwindCSS, NGINX, Google Cloud Services
+Databases & Tools: PostgreSQL, ElasticSearch, Kafka, Redis, MongoDB, Sidekiq
+ML & Data: TensorFlow, OpenCV, Tesseract, Pandas

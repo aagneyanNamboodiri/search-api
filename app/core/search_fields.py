@@ -111,13 +111,14 @@ HIT_SOURCE_FIELDS: tuple[str, ...] = (
     "session_uuid",
     "store",
     "categories.title",
+    "visit_date",
 )
 
 
 def normalize_level_key(key: str) -> str | None:
     """Resolve a frontend level key (singular or plural) to its ES array name."""
     normalized = key.strip().lower()
-    if normalized in SCHEMA_LEVELS:
+    if normalized in ALL_LEVELS:
         return normalized
     return _LEVEL_ALIASES.get(normalized)
 
@@ -135,8 +136,9 @@ def schema_level_keys() -> list[str]:
 def build_store_filter(field: str, value: str) -> dict[str, Any] | None:
     """Translate a single store clause into a filter-context query.
 
-    store.id matches exactly (term); all text fields use an analyzed match so
-    the filter stays forgiving and case-insensitive.
+    store.id matches exactly (term). Text fields combine a fuzzy match (typo
+    tolerance) with a phrase-prefix match (partial words) so the filter stays
+    forgiving, case-insensitive, and resilient to small spelling mistakes.
     """
     path = _STORE_FIELD_PATHS.get(field.strip().lower())
     if not path:
@@ -148,4 +150,12 @@ def build_store_filter(field: str, value: str) -> dict[str, Any] | None:
         except (TypeError, ValueError):
             return None
 
-    return {"match": {path: value}}
+    return {
+        "bool": {
+            "should": [
+                {"match": {path: {"query": value, "fuzziness": "AUTO", "prefix_length": 1}}},
+                {"match_phrase_prefix": {path: value}},
+            ],
+            "minimum_should_match": 1,
+        }
+    }
